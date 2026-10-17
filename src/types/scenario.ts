@@ -17,7 +17,15 @@ export interface ScenarioNode {
   color?: NodeColor;
 }
 
-export type StepActionType = 'message' | 'transform' | 'state' | 'highlight' | 'result';
+export type StepActionType =
+  | 'message'
+  | 'transform'
+  | 'state'
+  | 'highlight'
+  | 'result'
+  | 'compare'
+  | 'combine'
+  | 'loop';
 
 export interface MessageAction {
   type: 'message';
@@ -59,12 +67,49 @@ export interface ResultAction {
   label: string;
 }
 
+export interface CompareAction {
+  type: 'compare';
+  target: string; // node id where comparison takes place
+  label: string;
+  left: { label?: string; value: string };
+  right: { label?: string; value: string };
+  operator?: '===' | '!==' | '==' | '!=';
+  matched: boolean; // true: green PASS, false: red FAIL
+  icon?: string;
+}
+
+export interface CombineAction {
+  type: 'combine';
+  target: string; // node id where concatenation/combination takes place
+  label: string;
+  items: string[]; // items to combine, e.g. ["pass: 123", "salt: x9K!"]
+  result: string; // combined output, e.g. "123x9K!"
+  operator?: '+' | '||';
+  badge?: string;
+  icon?: string;
+}
+
+export interface LoopAction {
+  type: 'loop';
+  target: string; // node id where loop stretching takes place
+  label: string;
+  iterations: number; // number of rounds (e.g. 10000, 65536)
+  unit?: string; // e.g. "rounds", "回", "iters"
+  badge?: string; // e.g. "Argon2id", "PBKDF2", "bcrypt"
+  result?: string;
+  icon?: string;
+}
+
 export type StepAction =
   | MessageAction
   | TransformAction
   | StateAction
   | HighlightAction
-  | ResultAction;
+  | ResultAction
+  | CompareAction
+  | CombineAction
+  | LoopAction;
+
 
 export interface ScenarioStep {
   id?: string;

@@ -8,7 +8,10 @@ import {
   Repeat,
   Sparkles,
   ShieldCheck,
-  AlertTriangle
+  AlertTriangle,
+  Check,
+  X,
+  Layers
 } from 'lucide-react';
 import { Scenario, AspectRatio, ScenarioNode } from '../types/scenario';
 import { DynamicIcon } from './DynamicIcon';
@@ -279,12 +282,24 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
             activeStep?.action.type === 'state' && activeStep.action.target === node.id;
           const isTargetOfResult =
             activeStep?.action.type === 'result' && activeStep.action.target === node.id;
+          const isTargetOfCompare =
+            activeStep?.action.type === 'compare' && activeStep.action.target === node.id;
+          const isTargetOfCombine =
+            activeStep?.action.type === 'combine' && activeStep.action.target === node.id;
+          const isTargetOfLoop =
+            activeStep?.action.type === 'loop' && activeStep.action.target === node.id;
           const isArrivingNode =
             activeStep?.action.type === 'message' &&
             activeStep.action.to === node.id &&
             stepProgress > 0.75;
 
-          const scale = isArrivingNode ? 1.06 : isTargetOfTransform ? 1.04 : 1;
+          const scale = isArrivingNode
+            ? 1.06
+            : isTargetOfTransform || isTargetOfCombine
+            ? 1.04
+            : isTargetOfLoop
+            ? 1.03 + Math.sin(stepProgress * Math.PI * 4) * 0.02
+            : 1;
           const nodeCustomScale = node.scale || 1.0;
           const totalScale = scale * nodeCustomScale;
           const isFramed = node.frame !== false;
@@ -312,11 +327,19 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
                 />
               )}
 
-              {/* Pulsing ring when transforming */}
-              {isTargetOfTransform && (
+              {/* Pulsing ring when transforming or combining */}
+              {(isTargetOfTransform || isTargetOfCombine) && (
                 <div
                   className="absolute -inset-3 rounded-2xl bg-purple-500/30 animate-ping pointer-events-none"
                   style={{ animationDuration: '1.2s' }}
+                />
+              )}
+
+              {/* Rotating ring when looping / stretching */}
+              {isTargetOfLoop && (
+                <div
+                  className="absolute -inset-4 rounded-full border-2 border-dashed border-indigo-400/60 animate-spin pointer-events-none"
+                  style={{ animationDuration: '1.5s' }}
                 />
               )}
 
@@ -431,6 +454,117 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Compare Action Badge Popup */}
+              {isTargetOfCompare && activeStep.action.type === 'compare' && (
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 whitespace-nowrap z-30 flex flex-col items-center gap-1 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/95 border border-slate-600/80 shadow-2xl backdrop-blur-md">
+                    <div className="flex flex-col items-center px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60 max-w-[120px]">
+                      {activeStep.action.left.label && (
+                        <span className="text-[8px] text-slate-400 font-semibold">{activeStep.action.left.label}</span>
+                      )}
+                      <span className="text-[10px] font-mono text-slate-200 truncate max-w-full">
+                        {activeStep.action.left.value}
+                      </span>
+                    </div>
+                    <span className="text-xs font-bold font-mono text-sky-400 px-1">
+                      {activeStep.action.operator || '==='}
+                    </span>
+                    <div className="flex flex-col items-center px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60 max-w-[120px]">
+                      {activeStep.action.right.label && (
+                        <span className="text-[8px] text-slate-400 font-semibold">{activeStep.action.right.label}</span>
+                      )}
+                      <span className="text-[10px] font-mono text-slate-200 truncate max-w-full">
+                        {activeStep.action.right.value}
+                      </span>
+                    </div>
+                  </div>
+                  {stepProgress > 0.35 && (
+                    <div
+                      className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border shadow-lg animate-bounce ${
+                        activeStep.action.matched
+                          ? 'bg-emerald-950/90 border-emerald-500 text-emerald-200 shadow-emerald-900/40'
+                          : 'bg-rose-950/90 border-rose-500 text-rose-200 shadow-rose-900/40'
+                      }`}
+                    >
+                      {activeStep.action.matched ? (
+                        <>
+                          <Check size={11} className="text-emerald-400" />
+                          <span>一致 (MATCH ✅)</span>
+                        </>
+                      ) : (
+                        <>
+                          <X size={11} className="text-rose-400" />
+                          <span>不一致 (MISMATCH ❌)</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Combine Action Badge Popup */}
+              {isTargetOfCombine && activeStep.action.type === 'combine' && (() => {
+                const action = activeStep.action;
+                return (
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 whitespace-nowrap z-30 flex flex-col items-center gap-1 animate-in fade-in duration-200">
+                    {stepProgress < 0.45 ? (
+                      <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-950/90 border border-amber-500/60 text-amber-200 text-[10px] font-bold shadow-xl">
+                        <Layers size={12} className="text-amber-400" />
+                        <span>{action.label}:</span>
+                        {action.items.map((item, idx) => (
+                          <React.Fragment key={idx}>
+                            {idx > 0 && <span className="text-amber-400 font-bold px-0.5">{action.operator || '+'}</span>}
+                            <span className="px-1.5 py-0.5 rounded bg-amber-900/60 font-mono text-[9px]">{item}</span>
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-900/95 border border-amber-400 text-amber-100 text-[11px] font-bold shadow-2xl animate-bounce">
+                        <Sparkles size={13} className="text-amber-300" />
+                        <span>{action.label} ➔</span>
+                        <span className="px-2 py-0.5 rounded bg-amber-950/80 border border-amber-500/40 font-mono text-[10px] text-amber-200">
+                          {action.result}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Loop Action Badge Popup */}
+              {isTargetOfLoop && activeStep.action.type === 'loop' && (() => {
+                const count = Math.min(
+                  activeStep.action.iterations,
+                  Math.round(stepProgress * activeStep.action.iterations * 1.05)
+                );
+                const unit = activeStep.action.unit || 'rounds';
+                return (
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 whitespace-nowrap z-30 flex flex-col items-center gap-1">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-950/95 border border-indigo-500 text-indigo-100 shadow-xl">
+                      <Repeat size={13} className="text-indigo-400 animate-spin" />
+                      <div className="flex flex-col text-left">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold">{activeStep.action.label}</span>
+                          {activeStep.action.badge && (
+                            <span className="px-1 py-0.2 rounded bg-indigo-800/80 text-[8px] text-indigo-200">
+                              {activeStep.action.badge}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] font-mono font-bold text-sky-300">
+                          {count.toLocaleString()} / {activeStep.action.iterations.toLocaleString()} {unit}
+                        </span>
+                      </div>
+                    </div>
+                    {stepProgress > 0.8 && activeStep.action.result && (
+                      <div className="px-2.5 py-0.5 rounded-full bg-emerald-950/90 border border-emerald-500 text-emerald-200 text-[9px] font-mono shadow-md animate-bounce">
+                        出力: {activeStep.action.result}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           );
         })}

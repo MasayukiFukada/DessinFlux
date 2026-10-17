@@ -622,8 +622,189 @@ function renderCanvasAction(
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(action.label, bx + 28, by + bh / 2);
+  } else if (action.type === 'compare') {
+    const node = nodeMap.get(action.target);
+    if (!node) return;
+    const nx = (node.x / 100) * width;
+    const ny = (node.y / 100) * height;
+
+    const bw = 230;
+    const bh = stepProgress > 0.35 ? 56 : 36;
+    const bx = nx - bw / 2;
+    const by = ny + 46;
+
+    // Pop-in scale
+    const badgeScale = Math.min(1, stepProgress * 3.5);
+    ctx.save();
+    ctx.translate(nx, by + bh / 2);
+    ctx.scale(badgeScale, badgeScale);
+    ctx.translate(-nx, -(by + bh / 2));
+
+    ctx.shadowColor = 'rgba(15, 23, 42, 0.8)';
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, bx, by, bw, bh, 10);
+    ctx.fill();
+    ctx.stroke();
+
+    // Values comparison: left === right
+    ctx.font = '9px monospace';
+    ctx.fillStyle = '#94a3b8';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const leftVal = action.left.value.length > 11 ? action.left.value.slice(0, 10) + '…' : action.left.value;
+    const rightVal = action.right.value.length > 11 ? action.right.value.slice(0, 10) + '…' : action.right.value;
+    const op = action.operator || '===';
+
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillText(leftVal, bx + 55, by + 18);
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 11px monospace';
+    ctx.fillText(op, bx + 115, by + 18);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '9px monospace';
+    ctx.fillText(rightVal, bx + 175, by + 18);
+
+    // Match / Mismatch Badge
+    if (stepProgress > 0.35) {
+      const isMatch = action.matched;
+      const pillW = 130;
+      const pillH = 20;
+      const pillX = nx - pillW / 2;
+      const pillY = by + 30;
+
+      ctx.fillStyle = isMatch ? 'rgba(6, 78, 59, 0.95)' : 'rgba(136, 19, 55, 0.95)';
+      ctx.strokeStyle = isMatch ? '#10b981' : '#f43f5e';
+      ctx.lineWidth = 1.2;
+      roundRect(ctx, pillX, pillY, pillW, pillH, 10);
+      ctx.fill();
+      ctx.stroke();
+
+      drawCanvasIcon(ctx, isMatch ? 'check' : 'x', pillX + 14, pillY + pillH / 2, 10, isMatch ? '#34d399' : '#fb7185');
+      ctx.fillStyle = isMatch ? '#a7f3d0' : '#fecdd3';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(isMatch ? '一致 (MATCH ✅)' : '不一致 (MISMATCH ❌)', pillX + pillW / 2 + 6, pillY + pillH / 2);
+    }
+    ctx.restore();
+  } else if (action.type === 'combine') {
+    const node = nodeMap.get(action.target);
+    if (!node) return;
+    const nx = (node.x / 100) * width;
+    const ny = (node.y / 100) * height;
+
+    const bw = 210;
+    const bh = 36;
+    const bx = nx - bw / 2;
+    const by = ny + 46;
+
+    ctx.save();
+    if (stepProgress < 0.45) {
+      // First phase: items before combination
+      ctx.shadowColor = 'rgba(245, 158, 11, 0.4)';
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = 'rgba(69, 26, 3, 0.95)';
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, bx, by, bw, bh, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      drawCanvasIcon(ctx, 'layers', bx + 14, by + bh / 2, 13, '#fde68a');
+      ctx.fillStyle = '#fef3c7';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      const itemsStr = action.items.join(` ${action.operator || '+'} `);
+      const text = `${action.label}: ${itemsStr.length > 20 ? itemsStr.slice(0, 19) + '…' : itemsStr}`;
+      ctx.fillText(text, bx + 26, by + bh / 2);
+    } else {
+      // Second phase: combined result
+      const bounce = Math.min(1, (stepProgress - 0.45) * 4);
+      ctx.translate(nx, by + bh / 2);
+      ctx.scale(bounce, bounce);
+      ctx.translate(-nx, -(by + bh / 2));
+
+      ctx.shadowColor = 'rgba(245, 158, 11, 0.7)';
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = 'rgba(120, 53, 15, 0.95)';
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 1.8;
+      roundRect(ctx, bx, by, bw, bh, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      drawCanvasIcon(ctx, 'sparkles', bx + 14, by + bh / 2, 13, '#fde68a');
+      ctx.fillStyle = '#fffbeb';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      const text = `${action.label} ➔ ${action.result}`;
+      ctx.fillText(text.length > 24 ? text.slice(0, 23) + '…' : text, bx + 26, by + bh / 2);
+    }
+    ctx.restore();
+  } else if (action.type === 'loop') {
+    const node = nodeMap.get(action.target);
+    if (!node) return;
+    const nx = (node.x / 100) * width;
+    const ny = (node.y / 100) * height;
+
+    // Spinning dash ring around target node
+    ctx.save();
+    ctx.strokeStyle = 'rgba(129, 140, 248, 0.7)';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([8, 6]);
+    ctx.lineDashOffset = -stepProgress * 60;
+    ctx.beginPath();
+    ctx.arc(nx, ny, 44, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Loop info badge
+    const bw = 190;
+    const bh = stepProgress > 0.8 && action.result ? 54 : 36;
+    const bx = nx - bw / 2;
+    const by = ny + 46;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(99, 102, 241, 0.5)';
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = 'rgba(49, 46, 129, 0.95)';
+    ctx.strokeStyle = '#818cf8';
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, bx, by, bw, bh, 8);
+    ctx.fill();
+    ctx.stroke();
+
+    drawCanvasIcon(ctx, 'repeat', bx + 16, by + 18, 14, '#c7d2fe');
+
+    const count = Math.min(action.iterations, Math.round(stepProgress * action.iterations * 1.05));
+    const unit = action.unit || 'rounds';
+
+    ctx.fillStyle = '#e0e7ff';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(action.label + (action.badge ? ` [${action.badge}]` : ''), bx + 28, by + 11);
+
+    ctx.fillStyle = '#7dd3fc';
+    ctx.font = 'bold 10px monospace';
+    ctx.fillText(`${count.toLocaleString()} / ${action.iterations.toLocaleString()} ${unit}`, bx + 28, by + 25);
+
+    if (stepProgress > 0.8 && action.result) {
+      ctx.fillStyle = '#34d399';
+      ctx.font = '9px monospace';
+      const resText = `出力: ${action.result.length > 20 ? action.result.slice(0, 19) + '…' : action.result}`;
+      ctx.fillText(resText, bx + 28, by + 42);
+    }
+    ctx.restore();
   }
 }
+
 
 function renderWrappedCaption(
   ctx: CanvasRenderingContext2D,
@@ -841,6 +1022,42 @@ function drawCanvasIcon(
       ctx.moveTo(cx - half * 0.8, cy);
       ctx.lineTo(cx - 1, cy + half * 0.6);
       ctx.lineTo(cx + half * 0.8, cy - half * 0.6);
+      ctx.stroke();
+      break;
+    }
+    case 'x': {
+      ctx.beginPath();
+      ctx.moveTo(cx - half * 0.7, cy - half * 0.7);
+      ctx.lineTo(cx + half * 0.7, cy + half * 0.7);
+      ctx.moveTo(cx + half * 0.7, cy - half * 0.7);
+      ctx.lineTo(cx - half * 0.7, cy + half * 0.7);
+      ctx.stroke();
+      break;
+    }
+    case 'repeat': {
+      ctx.beginPath();
+      ctx.arc(cx, cy, half * 0.7, 0.2 * Math.PI, 1.8 * Math.PI);
+      ctx.stroke();
+      // Arrow head
+      ctx.beginPath();
+      ctx.moveTo(cx + half * 0.7, cy - 3);
+      ctx.lineTo(cx + half * 0.7 + 3, cy + 2);
+      ctx.lineTo(cx + half * 0.7 - 3, cy + 2);
+      ctx.fill();
+      break;
+    }
+    case 'layers': {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - half);
+      ctx.lineTo(cx + half, cy - half * 0.4);
+      ctx.lineTo(cx, cy + 2);
+      ctx.lineTo(cx - half, cy - half * 0.4);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - half, cy + 1);
+      ctx.lineTo(cx, cy + half * 0.6);
+      ctx.lineTo(cx + half, cy + 1);
       ctx.stroke();
       break;
     }
