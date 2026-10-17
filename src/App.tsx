@@ -14,12 +14,13 @@ import {
 } from 'lucide-react';
 import { ScenarioBook, AspectRatio, ScenarioNode } from './types/scenario';
 import { ExportFormat, ExportProgress } from './types/export';
-import { defaultScenarioBook } from './data/sampleScenarios';
+import { defaultScenarioBook, builtInBooks } from './data/sampleScenarios';
 import { CanvasPlayer } from './components/CanvasPlayer';
 import { exportScenarioToGif } from './utils/gifExporter';
 import { exportScenarioToVideo } from './utils/videoExporter';
 
 export const App: React.FC = () => {
+  const [currentBookId, setCurrentBookId] = useState<string>('password');
   const [book, setBook] = useState<ScenarioBook>(defaultScenarioBook);
   const [activeScenarioId, setActiveScenarioId] = useState<string>(book.scenarios[0]?.id || '');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(book.aspectRatio || '16:9');
@@ -32,6 +33,17 @@ export const App: React.FC = () => {
   const [copiedPrompt, setCopiedPrompt] = useState<boolean>(false);
 
   const activeScenario = book.scenarios.find((s) => s.id === activeScenarioId) || book.scenarios[0];
+
+  // Switch between built-in scenario books
+  const handleSwitchBook = (bookId: string) => {
+    const target = builtInBooks.find((b) => b.id === bookId);
+    if (!target) return;
+    setCurrentBookId(bookId);
+    setBook(target.book);
+    if (target.book.aspectRatio) setAspectRatio(target.book.aspectRatio);
+    setActiveScenarioId(target.book.scenarios[0]?.id || '');
+    setJsonText(JSON.stringify(target.book, null, 2));
+  };
 
   // Handle node drag update
   const handleUpdateNodes = (updatedNodes: ScenarioNode[]) => {
@@ -124,6 +136,7 @@ export const App: React.FC = () => {
         setBook(parsed);
         if (parsed.aspectRatio) setAspectRatio(parsed.aspectRatio);
         setActiveScenarioId(parsed.scenarios[0].id);
+        setCurrentBookId('custom');
       } catch (err) {
         alert('読み込んだJSONファイルが不正です');
       }
@@ -333,33 +346,65 @@ export const App: React.FC = () => {
       <div className="flex-1 flex flex-col md:flex-row p-6 max-w-7xl mx-auto w-full gap-6">
         {/* Left Sidebar: Scenario List */}
         <aside className="w-full md:w-80 lg:w-84 flex flex-col gap-3 flex-shrink-0">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+          {/* Scenario Book Selector */}
+          <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-slate-900/80 border border-slate-800 shadow-md">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <FileJson size={13} className="text-sky-400" />
+                シナリオ集 (Book)
+              </span>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-sky-300 cursor-pointer transition-colors" title="JSONファイルを開く">
+                  <Upload size={11} />
+                  <span>開く</span>
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
+                <button
+                  onClick={handleDownloadJson}
+                  className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-emerald-300 transition-colors"
+                  title="編集したシナリオJSONをダウンロード保存"
+                >
+                  <Save size={11} />
+                  <span>保存</span>
+                </button>
+              </div>
+            </div>
+            <select
+              value={currentBookId}
+              onChange={(e) => handleSwitchBook(e.target.value)}
+              className="w-full px-2.5 py-1.5 text-xs font-semibold bg-slate-950 border border-slate-700/80 rounded-lg text-slate-200 focus:outline-none focus:border-sky-500 cursor-pointer"
+            >
+              {builtInBooks.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+              {currentBookId === 'custom' && (
+                <option value="custom">外部ファイル ({book.title})</option>
+              )}
+            </select>
+          </div>
+
+          <div className="flex items-center justify-between pb-1 border-b border-slate-800/80">
             <div className="flex items-center gap-2">
-              <List size={16} className="text-sky-400" />
-              <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+              <List size={15} className="text-sky-400" />
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
                 シナリオ一覧 ({book.scenarios.length})
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-sky-300 cursor-pointer transition-colors" title="JSONファイルを開く">
-                <Upload size={12} />
-                <span>開く</span>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-              <button
-                onClick={handleDownloadJson}
-                className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-emerald-300 transition-colors"
-                title="編集したシナリオJSONをダウンロード保存"
-              >
-                <Save size={12} />
-                <span>保存</span>
-              </button>
-            </div>
+            <button
+              onClick={handleAddNewScenario}
+              className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 rounded transition-colors"
+              title="空のシナリオを新規追加"
+            >
+              <Plus size={13} />
+              <span>追加</span>
+            </button>
           </div>
 
           {/* Vertical Scenario List */}

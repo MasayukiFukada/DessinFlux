@@ -1,0 +1,230 @@
+{
+  "title": "DessinFlux 基本表現ショーケース",
+  "description": "DessinFlux で利用可能な全ノードスタイル、アイコン、外部アクター、および全ステップアクションの動作確認用サンプル集",
+  "aspectRatio": "16:9",
+  "scenarios": [
+    {
+      "id": "action-showcase",
+      "title": "1. 全アクション一覧 (Actions Showcase)",
+      "description": "message, transform, state, result, compare, combine, loop の全7アクションを順番に実演",
+      "nodes": [
+        {
+          "id": "narrator",
+          "label": "解説アクター",
+          "image": "/actors/avatar-bot.svg",
+          "frame": false,
+          "scale": 1.2,
+          "x": 12,
+          "y": 32
+        },
+        {
+          "id": "client",
+          "label": "クライアント端末",
+          "sublabel": "Browser",
+          "icon": "laptop",
+          "color": "blue",
+          "connectTo": ["server"],
+          "x": 35,
+          "y": 55
+        },
+        {
+          "id": "server",
+          "label": "Webサーバー",
+          "sublabel": "Node.js API",
+          "icon": "server",
+          "color": "purple",
+          "connectTo": ["db"],
+          "x": 65,
+          "y": 55
+        },
+        {
+          "id": "db",
+          "label": "データベース",
+          "sublabel": "PostgreSQL",
+          "icon": "database",
+          "color": "emerald",
+          "connectTo": [],
+          "x": 90,
+          "y": 55
+        }
+      ],
+      "steps": [
+        {
+          "duration": 2200,
+          "caption": "【1. message】クライアントからサーバーへデータパケットが移動します",
+          "action": {
+            "type": "message",
+            "from": "client",
+            "to": "server",
+            "label": "POST /api/data",
+            "payload": "key: secretValue",
+            "icon": "key",
+            "status": "info"
+          }
+        },
+        {
+          "duration": 2200,
+          "caption": "【2. combine】複数の要素（データ＋乱数）を1つに合体・結合します",
+          "action": {
+            "type": "combine",
+            "target": "server",
+            "label": "ソルト結合",
+            "items": ["secretValue", "salt: 9aF!"],
+            "result": "secretValue9aF!",
+            "operator": "+"
+          }
+        },
+        {
+          "duration": 2500,
+          "caption": "【3. loop】高負荷な計算（ストレッチング）を高速ループで演出します",
+          "action": {
+            "type": "loop",
+            "target": "server",
+            "label": "ストレッチング実行",
+            "badge": "Argon2id",
+            "iterations": 10000,
+            "unit": "rounds",
+            "result": "$argon2id$v=19$m=65536..."
+          }
+        },
+        {
+          "duration": 2200,
+          "caption": "【4. transform】ノード内でデータを変換し、結果バッジを表示します",
+          "action": {
+            "type": "transform",
+            "target": "server",
+            "label": "署名生成完了",
+            "badge": "HMAC-SHA256",
+            "result": "sig_a9c402...",
+            "icon": "sparkles"
+          }
+        },
+        {
+          "duration": 2400,
+          "caption": "【5. compare】入力値と保存値を左右に突き合わせ、一致判定（MATCH ✅）を行います",
+          "action": {
+            "type": "compare",
+            "target": "server",
+            "label": "ハッシュ値の照合",
+            "left": { "label": "計算ハッシュ", "value": "a9c402..." },
+            "right": { "label": "DB保存値", "value": "a9c402..." },
+            "operator": "===",
+            "matched": true
+          }
+        },
+        {
+          "duration": 2000,
+          "caption": "【6. state】DBに現在の保存状態バッジを表示します",
+          "action": {
+            "type": "state",
+            "target": "db",
+            "label": "データ永続化完了",
+            "value": "id: 101, status: active",
+            "status": "safe"
+          }
+        },
+        {
+          "duration": 2000,
+          "caption": "【7. result】最終的な成否バッジ（成功）を表示します",
+          "action": {
+            "type": "result",
+            "target": "server",
+            "label": "全処理正常完了！",
+            "status": "success"
+          }
+        }
+      ]
+    },
+    {
+      "id": "node-styles",
+      "title": "2. ノード表現・立ち絵・カラー一覧 (Node Styles)",
+      "description": "枠ありカード、枠なし立ち絵アバター、拡大率（scale）、左右反転（flipX）、各種カラーバリエーション",
+      "nodes": [
+        {
+          "id": "actor-normal",
+          "label": "立ち絵 (通常向き)",
+          "image": "/actors/avatar-user.svg",
+          "frame": false,
+          "scale": 1.2,
+          "flipX": false,
+          "x": 15,
+          "y": 30
+        },
+        {
+          "id": "actor-flipped",
+          "label": "立ち絵 (左右反転)",
+          "image": "/actors/avatar-bot.svg",
+          "frame": false,
+          "scale": 1.0,
+          "flipX": true,
+          "x": 85,
+          "y": 30
+        },
+        {
+          "id": "blue-node",
+          "label": "Blue",
+          "sublabel": "端末系",
+          "icon": "laptop",
+          "color": "blue",
+          "connectTo": ["purple-node"],
+          "x": 20,
+          "y": 68
+        },
+        {
+          "id": "purple-node",
+          "label": "Purple",
+          "sublabel": "サーバー系",
+          "icon": "server",
+          "color": "purple",
+          "connectTo": ["emerald-node"],
+          "x": 40,
+          "y": 68
+        },
+        {
+          "id": "emerald-node",
+          "label": "Emerald",
+          "sublabel": "安全・DB系",
+          "icon": "database",
+          "color": "emerald",
+          "connectTo": ["rose-node"],
+          "x": 60,
+          "y": 68
+        },
+        {
+          "id": "rose-node",
+          "label": "Rose",
+          "sublabel": "危険・注意系",
+          "icon": "alert-triangle",
+          "color": "rose",
+          "connectTo": [],
+          "x": 80,
+          "y": 68
+        }
+      ],
+      "steps": [
+        {
+          "duration": 2500,
+          "caption": "立ち絵アバター（枠なし・左右反転）と、色分けされたシステムノード間をパケットがリレーします",
+          "action": {
+            "type": "message",
+            "from": "blue-node",
+            "to": "purple-node",
+            "label": "リクエスト送信",
+            "status": "safe"
+          }
+        },
+        {
+          "duration": 2500,
+          "caption": "ノードカラーやアイコン（laptop, server, database, shield等）は自由にカスタマイズ可能です",
+          "action": {
+            "type": "message",
+            "from": "purple-node",
+            "to": "emerald-node",
+            "label": "DBクエリ",
+            "status": "info"
+          }
+        }
+      ]
+    }
+  ]
+}
