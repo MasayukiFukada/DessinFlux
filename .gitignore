@@ -96,3 +96,9 @@ dist-ssr/
 *.sw?
 .DS_Store
 Thumbs.db
+
+# User-provided actor assets (preserve default SVGs and .gitkeep)
+public/actors/*
+!public/actors/.gitkeep
+!public/actors/avatar-*.svg
+

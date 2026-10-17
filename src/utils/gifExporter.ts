@@ -25,25 +25,107 @@ const canvasNodeColors: Record<string, { border: string; glow: string; text: str
   slate: { border: '#64748b', glow: 'rgba(100, 116, 139, 0.4)', text: '#94a3b8', bgFrom: '#334155', bgTo: '#0f172a' },
 };
 
+export const DEFAULT_BOT_AVATAR = '/actors/avatar-bot.svg';
+export const DEFAULT_USER_AVATAR = '/actors/avatar-user.svg';
+
+export function getFallbackAvatarForNode(node: ScenarioNode): string {
+  const lowerId = (node.id || '').toLowerCase();
+  const lowerLabel = (node.label || '').toLowerCase();
+  if (
+    lowerId.includes('user') ||
+    lowerId.includes('client') ||
+    lowerLabel.includes('ユーザー') ||
+    node.icon === 'user' ||
+    node.icon === 'laptop'
+  ) {
+    return DEFAULT_USER_AVATAR;
+  }
+  return DEFAULT_BOT_AVATAR;
+}
+
+export async function loadSingleImage(src: string): Promise<HTMLImageElement | null> {
+  const tryLoad = (useCors: boolean) =>
+    new Promise<HTMLImageElement | null>((resolve) => {
+      const img = new Image();
+      if (useCors) {
+        img.crossOrigin = 'anonymous';
+      }
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+
+  const isExternal = src.startsWith('http://') || src.startsWith('https://');
+  // First attempt: CORS mode for external, standard mode for local to prevent CORS blocks
+  let img = await tryLoad(isExternal);
+  if (!img) {
+    // Second attempt: toggle CORS mode as fallback
+    img = await tryLoad(!isExternal);
+  }
+  return img;
+}
+
+export function drawContainedImage(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  cx: number,
+  cy: number,
+  maxW: number,
+  maxH: number,
+  flipX?: boolean
+) {
+  const nw = img.naturalWidth || img.width || maxW;
+  const nh = img.naturalHeight || img.height || maxH;
+  const aspect = nw / nh;
+
+  let dw = maxW;
+  let dh = maxW / aspect;
+  if (dh > maxH) {
+    dh = maxH;
+    dw = maxH * aspect;
+  }
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  if (flipX) {
+    ctx.scale(-1, 1);
+  }
+  ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+  ctx.restore();
+}
+
 export async function preloadScenarioImages(scenario: Scenario): Promise<Map<string, HTMLImageElement>> {
   const cache = new Map<string, HTMLImageElement>();
+
+  // 1. Always preload default fallback avatars
+  const [botImg, userImg] = await Promise.all([
+    loadSingleImage(DEFAULT_BOT_AVATAR),
+    loadSingleImage(DEFAULT_USER_AVATAR),
+  ]);
+  if (botImg) cache.set(DEFAULT_BOT_AVATAR, botImg);
+  if (userImg) cache.set(DEFAULT_USER_AVATAR, userImg);
+
+  // 2. Preload images for each node with fallback protection
   const promises: Promise<void>[] = [];
 
   for (const node of scenario.nodes) {
+    const fallbackPath = getFallbackAvatarForNode(node);
+    const fallbackImg = cache.get(fallbackPath) || botImg || userImg;
+
     if (node.image && !cache.has(node.image)) {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      const p = new Promise<void>((resolve) => {
-        img.onload = () => {
-          cache.set(node.image!, img);
-          resolve();
-        };
-        img.onerror = () => {
-          console.warn(`Failed to load actor image: ${node.image}`);
-          resolve();
-        };
-      });
-      img.src = node.image;
+      const p = (async () => {
+        const loadedImg = await loadSingleImage(node.image!);
+        if (loadedImg) {
+          cache.set(node.image!, loadedImg);
+        } else {
+          console.warn(
+            `[DessinFlux] Failed to load actor image: "${node.image}". Falling back to "${fallbackPath}"`
+          );
+          if (fallbackImg) {
+            cache.set(node.image!, fallbackImg);
+          }
+        }
+      })();
       promises.push(p);
     }
   }
@@ -306,16 +388,11 @@ function renderCanvasNode(
     ctx.fill();
 
     // Draw external actor image if present, otherwise vector icon
-    const actorImg = node.image && imageCache?.get(node.image);
+    const actorImg =
+      (node.image ? imageCache?.get(node.image) : undefined) ||
+      (node.image ? imageCache?.get(getFallbackAvatarForNode(node)) : undefined);
     if (actorImg) {
-      ctx.save();
-      ctx.translate(iconX, iconY);
-      if (node.flipX) {
-        ctx.scale(-1, 1);
-      }
-      const imgSize = 22;
-      ctx.drawImage(actorImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
-      ctx.restore();
+      drawContainedImage(ctx, actorImg, iconX, iconY, 22, 22, node.flipX);
     } else {
       drawCanvasIcon(ctx, node.icon || 'layers', iconX, iconY, 15, theme.text);
     }
@@ -335,20 +412,18 @@ function renderCanvasNode(
     }
   } else {
     // Borderless Standalone Avatar (e.g. Character standing)
-    const actorImg = node.image && imageCache?.get(node.image);
-    const imgW = 56;
-    const imgH = 70;
+    const fallbackPath = getFallbackAvatarForNode(node);
+    const actorImg =
+      (node.image ? imageCache?.get(node.image) : undefined) ||
+      imageCache?.get(fallbackPath) ||
+      imageCache?.get(DEFAULT_BOT_AVATAR);
     const imgX = nx;
     const imgY = ny - 6;
+    const avatarBoxW = 64;
+    const avatarBoxH = 80;
 
-    if (actorImg) {
-      ctx.save();
-      ctx.translate(imgX, imgY);
-      if (node.flipX) {
-        ctx.scale(-1, 1);
-      }
-      ctx.drawImage(actorImg, -imgW / 2, -imgH / 2, imgW, imgH);
-      ctx.restore();
+    if (actorImg && (node.image || !node.icon)) {
+      drawContainedImage(ctx, actorImg, imgX, imgY, avatarBoxW, avatarBoxH, node.flipX);
     } else {
       drawCanvasIcon(ctx, node.icon || 'layers', imgX, imgY, 32, theme.text);
     }
@@ -360,7 +435,7 @@ function renderCanvasNode(
     const badgeW = textW + 16;
     const badgeH = 22;
     const bx = nx - badgeW / 2;
-    const by = ny + imgH / 2 - 2;
+    const by = imgY + avatarBoxH / 2 + 2;
 
     ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
     ctx.strokeStyle = 'rgba(100, 116, 139, 0.5)';

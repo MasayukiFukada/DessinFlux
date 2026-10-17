@@ -13,6 +13,8 @@ import {
 import { Scenario, AspectRatio, ScenarioNode } from '../types/scenario';
 import { DynamicIcon } from './DynamicIcon';
 import { nodeColorStyles } from '../utils/theme';
+import { getFallbackAvatarForNode } from '../utils/gifExporter';
+
 
 interface CanvasPlayerProps {
   scenario: Scenario;
@@ -332,6 +334,12 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
                         style={{
                           transform: node.flipX ? 'scaleX(-1)' : undefined,
                         }}
+                        onError={(e) => {
+                          const fallback = getFallbackAvatarForNode(node);
+                          if (e.currentTarget.src !== fallback && !e.currentTarget.src.endsWith(fallback)) {
+                            e.currentTarget.src = fallback;
+                          }
+                        }}
                       />
                     ) : (
                       <DynamicIcon name={node.icon} size={20} />
@@ -350,13 +358,19 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
                 /* Borderless Standalone Avatar (e.g. Character standing) */
                 <div className="relative flex flex-col items-center justify-center group-hover:scale-105 transition-transform duration-200">
                   <div className="relative mb-1 flex items-center justify-center filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
-                    {node.image ? (
+                    {node.image || !node.icon ? (
                       <img
-                        src={node.image}
+                        src={node.image || getFallbackAvatarForNode(node)}
                         alt={node.label}
                         className="w-16 h-20 object-contain pointer-events-none"
                         style={{
                           transform: node.flipX ? 'scaleX(-1)' : undefined,
+                        }}
+                        onError={(e) => {
+                          const fallback = getFallbackAvatarForNode(node);
+                          if (e.currentTarget.src !== fallback && !e.currentTarget.src.endsWith(fallback)) {
+                            e.currentTarget.src = fallback;
+                          }
                         }}
                       />
                     ) : (
