@@ -7,6 +7,8 @@ export interface ScenarioNode {
   label: string;
   sublabel?: string;
   icon?: string; // lucide icon name (e.g., 'laptop', 'server', 'database', 'key', 'shield', 'user')
+  image?: string; // external image asset path (e.g., '/actors/avatar.png')
+  flipX?: boolean; // flip image horizontally (for facing left/right)
   x: number; // 0 - 100 percentage
   y: number; // 0 - 100 percentage
   color?: NodeColor;

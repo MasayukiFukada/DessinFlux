@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <circle cx="50" cy="50" r="45" fill="#a855f7" opacity="0.2"/>
+  <rect x="20" y="24" width="60" height="52" rx="14" fill="#1e293b" stroke="#a855f7" stroke-width="3"/>
+  <!-- Antennas -->
+  <line x1="50" y1="24" x2="50" y2="12" stroke="#a855f7" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="50" cy="10" r="4" fill="#c084fc"/>
+  <!-- Eyes -->
+  <circle cx="38" cy="48" r="7" fill="#c084fc"/>
+  <circle cx="62" cy="48" r="7" fill="#c084fc"/>
+  <line x1="38" y1="64" x2="62" y2="64" stroke="#c084fc" stroke-width="3" stroke-linecap="round"/>
+</svg>

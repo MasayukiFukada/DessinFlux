@@ -1,6 +1,6 @@
 import { Scenario, AspectRatio } from '../types/scenario';
 import { ExportOptions, ExportProgress } from '../types/export';
-import { renderFrameAtTime, aspectRatios } from './gifExporter';
+import { renderFrameAtTime, aspectRatios, preloadScenarioImages } from './gifExporter';
 
 export async function exportScenarioToVideo(
   scenario: Scenario,
@@ -11,6 +11,9 @@ export async function exportScenarioToVideo(
   const { width, height } = aspectRatios[aspectRatio];
   const fps = options.fps || 30; // 30 fps for smooth video
   const frameInterval = 1000 / fps;
+
+  // Preload external actor images
+  const imageCache = await preloadScenarioImages(scenario);
 
   const totalDuration = scenario.steps.reduce((sum, s) => sum + (s.duration || 2000), 0);
   const totalFrames = Math.max(1, Math.round((totalDuration / 1000) * fps));
@@ -47,7 +50,7 @@ export async function exportScenarioToVideo(
   }
 
   // Initial first frame render
-  renderFrameAtTime(ctx, scenario, 0, width, height, options.transparentBg);
+  renderFrameAtTime(ctx, scenario, 0, width, height, options.transparentBg, imageCache);
 
   const stream = canvas.captureStream(fps);
   const recorder = new MediaRecorder(stream, {
@@ -72,7 +75,7 @@ export async function exportScenarioToVideo(
   // Render each frame sequentially in sync with time
   for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
     const currentTime = (frameIndex / totalFrames) * totalDuration;
-    renderFrameAtTime(ctx, scenario, currentTime, width, height, options.transparentBg);
+    renderFrameAtTime(ctx, scenario, currentTime, width, height, options.transparentBg, imageCache);
 
     if (onProgress && frameIndex % 5 === 0) {
       onProgress({

@@ -25,6 +25,33 @@ const canvasNodeColors: Record<string, { border: string; glow: string; text: str
   slate: { border: '#64748b', glow: 'rgba(100, 116, 139, 0.4)', text: '#94a3b8', bgFrom: '#334155', bgTo: '#0f172a' },
 };
 
+export async function preloadScenarioImages(scenario: Scenario): Promise<Map<string, HTMLImageElement>> {
+  const cache = new Map<string, HTMLImageElement>();
+  const promises: Promise<void>[] = [];
+
+  for (const node of scenario.nodes) {
+    if (node.image && !cache.has(node.image)) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      const p = new Promise<void>((resolve) => {
+        img.onload = () => {
+          cache.set(node.image!, img);
+          resolve();
+        };
+        img.onerror = () => {
+          console.warn(`Failed to load actor image: ${node.image}`);
+          resolve();
+        };
+      });
+      img.src = node.image;
+      promises.push(p);
+    }
+  }
+
+  await Promise.all(promises);
+  return cache;
+}
+
 export async function exportScenarioToGif(
   scenario: Scenario,
   aspectRatio: AspectRatio,
@@ -34,6 +61,9 @@ export async function exportScenarioToGif(
   const { width, height } = aspectRatios[aspectRatio];
   const fps = 20; // 20 frames per second
   const frameDelay = 1000 / fps;
+
+  // Preload any external actor images
+  const imageCache = await preloadScenarioImages(scenario);
 
   const totalDuration = scenario.steps.reduce((sum, s) => sum + (s.duration || 2000), 0);
   const totalFrames = Math.max(1, Math.round((totalDuration / 1000) * fps));
@@ -49,7 +79,7 @@ export async function exportScenarioToGif(
   for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
     const currentTime = (frameIndex / totalFrames) * totalDuration;
 
-    renderFrameAtTime(ctx, scenario, currentTime, width, height, transparentBg);
+    renderFrameAtTime(ctx, scenario, currentTime, width, height, transparentBg, imageCache);
 
     const imgData = ctx.getImageData(0, 0, width, height);
     frames.push({ data: imgData.data, delay: frameDelay });
@@ -84,7 +114,8 @@ export function renderFrameAtTime(
   currentTime: number,
   width: number,
   height: number,
-  transparentBg: boolean = false
+  transparentBg: boolean = false,
+  imageCache?: Map<string, HTMLImageElement>
 ) {
   // Clear canvas
   ctx.clearRect(0, 0, width, height);
@@ -179,7 +210,7 @@ export function renderFrameAtTime(
 
   // 5. Render Nodes (Layer 3: Draw BEFORE foreground packets and popups!)
   for (const node of scenario.nodes) {
-    renderCanvasNode(ctx, node, width, height, activeStep?.action, stepProgress);
+    renderCanvasNode(ctx, node, width, height, activeStep?.action, stepProgress, imageCache);
   }
 
   // 6. Render Foreground Actions (Layer 4: Packets, Badges, Highlights - Draw ON TOP of Nodes!)
@@ -199,7 +230,8 @@ function renderCanvasNode(
   width: number,
   height: number,
   currentAction?: StepAction,
-  stepProgress: number = 0
+  stepProgress: number = 0,
+  imageCache?: Map<string, HTMLImageElement>
 ) {
   const nx = (node.x / 100) * width;
   const ny = (node.y / 100) * height;
@@ -244,7 +276,7 @@ function renderCanvasNode(
   ctx.stroke();
   ctx.restore();
 
-  // 2. Icon container pill with subtle glow
+  // 2. Icon / Image container pill with subtle glow
   const iconX = nx;
   const iconY = cy + 18;
   ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
@@ -252,8 +284,20 @@ function renderCanvasNode(
   ctx.arc(iconX, iconY, 13, 0, Math.PI * 2);
   ctx.fill();
 
-  // Draw node icon
-  drawCanvasIcon(ctx, node.icon || 'layers', iconX, iconY, 15, theme.text);
+  // Draw external actor image if present, otherwise vector icon
+  const actorImg = node.image && imageCache?.get(node.image);
+  if (actorImg) {
+    ctx.save();
+    ctx.translate(iconX, iconY);
+    if (node.flipX) {
+      ctx.scale(-1, 1);
+    }
+    const imgSize = 22;
+    ctx.drawImage(actorImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
+    ctx.restore();
+  } else {
+    drawCanvasIcon(ctx, node.icon || 'layers', iconX, iconY, 15, theme.text);
+  }
 
   // Node label
   ctx.fillStyle = '#f8fafc';

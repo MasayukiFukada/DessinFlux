@@ -293,8 +293,19 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
               <div
                 className={`relative flex flex-col items-center justify-center min-w-[96px] px-3.5 py-2.5 rounded-xl bg-gradient-to-b ${theme.bg} border ${theme.border} shadow-lg transition-transform duration-200 group-hover:scale-105 group-hover:border-slate-300/60`}
               >
-                <div className={`p-1.5 rounded-lg bg-slate-800/80 mb-1 ${theme.text}`}>
-                  <DynamicIcon name={node.icon} size={20} />
+                <div className={`rounded-lg overflow-hidden mb-1 flex items-center justify-center ${node.image ? 'w-10 h-10' : `p-1.5 bg-slate-800/80 ${theme.text}`}`}>
+                  {node.image ? (
+                    <img
+                      src={node.image}
+                      alt={node.label}
+                      className="w-full h-full object-contain pointer-events-none"
+                      style={{
+                        transform: node.flipX ? 'scaleX(-1)' : undefined,
+                      }}
+                    />
+                  ) : (
+                    <DynamicIcon name={node.icon} size={20} />
+                  )}
                 </div>
                 <span className="text-xs font-semibold text-slate-100 leading-tight">
                   {node.label}
