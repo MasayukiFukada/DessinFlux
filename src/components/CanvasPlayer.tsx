@@ -157,23 +157,49 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
 
         {/* SVG layer for connecting lines & arrows */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
-          {/* Static dotted links between adjacent nodes */}
-          {scenario.nodes.map((node, i) => {
-            if (i === 0) return null;
-            const prev = scenario.nodes[i - 1];
-            return (
-              <line
-                key={`link-${prev.id}-${node.id}`}
-                x1={`${prev.x}%`}
-                y1={`${prev.y}%`}
-                x2={`${node.x}%`}
-                y2={`${node.y}%`}
-                stroke="rgba(148, 163, 184, 0.2)"
-                strokeWidth="2"
-                strokeDasharray="6 6"
-              />
-            );
-          })}
+          {/* Static dotted links: controlled by connectTo, or fallback between framed nodes */}
+          {(() => {
+            const hasAnyConnectTo = scenario.nodes.some((n) => n.connectTo && n.connectTo.length > 0);
+            if (hasAnyConnectTo) {
+              return scenario.nodes.flatMap((node) =>
+                (node.connectTo || []).map((targetId) => {
+                  const target = nodeMap.get(targetId);
+                  if (!target) return null;
+                  return (
+                    <line
+                      key={`link-${node.id}-${target.id}`}
+                      x1={`${node.x}%`}
+                      y1={`${node.y}%`}
+                      x2={`${target.x}%`}
+                      y2={`${target.y}%`}
+                      stroke="rgba(148, 163, 184, 0.25)"
+                      strokeWidth="2"
+                      strokeDasharray="6 6"
+                    />
+                  );
+                })
+              );
+            } else {
+              return scenario.nodes.map((node, i) => {
+                if (i === 0) return null;
+                const prev = scenario.nodes[i - 1];
+                // Don't auto-connect if either node has frame: false
+                if (node.frame === false || prev.frame === false) return null;
+                return (
+                  <line
+                    key={`link-${prev.id}-${node.id}`}
+                    x1={`${prev.x}%`}
+                    y1={`${prev.y}%`}
+                    x2={`${node.x}%`}
+                    y2={`${node.y}%`}
+                    stroke="rgba(148, 163, 184, 0.2)"
+                    strokeWidth="2"
+                    strokeDasharray="6 6"
+                  />
+                );
+              });
+            }
+          })()}
 
           {/* Active Message Animation Line */}
           {activeStep && activeStep.action.type === 'message' && (() => {
@@ -257,6 +283,9 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
             stepProgress > 0.75;
 
           const scale = isArrivingNode ? 1.06 : isTargetOfTransform ? 1.04 : 1;
+          const nodeCustomScale = node.scale || 1.0;
+          const totalScale = scale * nodeCustomScale;
+          const isFramed = node.frame !== false;
           const isArrivingDanger =
             isArrivingNode && activeStep?.action.type === 'message' && activeStep.action.status === 'danger';
 
@@ -268,7 +297,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
               style={{
                 left: `${node.x}%`,
                 top: `${node.y}%`,
-                transform: `translate(-50%, -50%) scale(${scale})`,
+                transform: `translate(-50%, -50%) scale(${totalScale})`,
               }}
             >
               {/* Message Arrival Ripple Ring */}
@@ -289,33 +318,58 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
                 />
               )}
 
-              {/* Node Card */}
-              <div
-                className={`relative flex flex-col items-center justify-center min-w-[96px] px-3.5 py-2.5 rounded-xl bg-gradient-to-b ${theme.bg} border ${theme.border} shadow-lg transition-transform duration-200 group-hover:scale-105 group-hover:border-slate-300/60`}
-              >
-                <div className={`rounded-lg overflow-hidden mb-1 flex items-center justify-center ${node.image ? 'w-10 h-10' : `p-1.5 bg-slate-800/80 ${theme.text}`}`}>
-                  {node.image ? (
-                    <img
-                      src={node.image}
-                      alt={node.label}
-                      className="w-full h-full object-contain pointer-events-none"
-                      style={{
-                        transform: node.flipX ? 'scaleX(-1)' : undefined,
-                      }}
-                    />
-                  ) : (
-                    <DynamicIcon name={node.icon} size={20} />
+              {/* Node Card / Borderless Avatar */}
+              {isFramed ? (
+                <div
+                  className={`relative flex flex-col items-center justify-center min-w-[96px] px-3.5 py-2.5 rounded-xl bg-gradient-to-b ${theme.bg} border ${theme.border} shadow-lg transition-transform duration-200 group-hover:scale-105 group-hover:border-slate-300/60`}
+                >
+                  <div className={`rounded-lg overflow-hidden mb-1 flex items-center justify-center ${node.image ? 'w-10 h-10' : `p-1.5 bg-slate-800/80 ${theme.text}`}`}>
+                    {node.image ? (
+                      <img
+                        src={node.image}
+                        alt={node.label}
+                        className="w-full h-full object-contain pointer-events-none"
+                        style={{
+                          transform: node.flipX ? 'scaleX(-1)' : undefined,
+                        }}
+                      />
+                    ) : (
+                      <DynamicIcon name={node.icon} size={20} />
+                    )}
+                  </div>
+                  <span className="text-xs font-semibold text-slate-100 leading-tight">
+                    {node.label}
+                  </span>
+                  {node.sublabel && (
+                    <span className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                      {node.sublabel}
+                    </span>
                   )}
                 </div>
-                <span className="text-xs font-semibold text-slate-100 leading-tight">
-                  {node.label}
-                </span>
-                {node.sublabel && (
-                  <span className="text-[10px] text-slate-400 mt-0.5 leading-tight">
-                    {node.sublabel}
+              ) : (
+                /* Borderless Standalone Avatar (e.g. Character standing) */
+                <div className="relative flex flex-col items-center justify-center group-hover:scale-105 transition-transform duration-200">
+                  <div className="relative mb-1 flex items-center justify-center filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+                    {node.image ? (
+                      <img
+                        src={node.image}
+                        alt={node.label}
+                        className="w-16 h-20 object-contain pointer-events-none"
+                        style={{
+                          transform: node.flipX ? 'scaleX(-1)' : undefined,
+                        }}
+                      />
+                    ) : (
+                      <div className={`p-3 rounded-2xl bg-slate-800/90 border border-slate-700/60 ${theme.text}`}>
+                        <DynamicIcon name={node.icon} size={28} />
+                      </div>
+                    )}
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-slate-900/85 backdrop-blur border border-slate-700/60 text-[10px] font-semibold text-slate-200 shadow-md whitespace-nowrap">
+                    {node.label}
                   </span>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Transform Action Badge Popup */}
               {isTargetOfTransform && activeStep.action.type === 'transform' && (

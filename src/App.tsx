@@ -9,7 +9,8 @@ import {
   Code2,
   Tv,
   Plus,
-  List
+  List,
+  Save
 } from 'lucide-react';
 import { ScenarioBook, AspectRatio, ScenarioNode } from './types/scenario';
 import { ExportFormat, ExportProgress } from './types/export';
@@ -128,6 +129,21 @@ export const App: React.FC = () => {
       }
     };
     reader.readAsText(file);
+  };
+
+  // Download current edited JSON file
+  const handleDownloadJson = () => {
+    const jsonString = JSON.stringify(book, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeTitle = (book.title || 'scenarios').replace(/[\s/\\?%*:|"<>]/g, '_');
+    a.download = `${safeTitle}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // Copy AI prompt template
@@ -324,16 +340,26 @@ export const App: React.FC = () => {
                 シナリオ一覧 ({book.scenarios.length})
               </span>
             </div>
-            <label className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-sky-300 cursor-pointer transition-colors">
-              <Upload size={12} />
-              <span>開く</span>
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </label>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-sky-300 cursor-pointer transition-colors" title="JSONファイルを開く">
+                <Upload size={12} />
+                <span>開く</span>
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+              <button
+                onClick={handleDownloadJson}
+                className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-emerald-300 transition-colors"
+                title="編集したシナリオJSONをダウンロード保存"
+              >
+                <Save size={12} />
+                <span>保存</span>
+              </button>
+            </div>
           </div>
 
           {/* Vertical Scenario List */}
@@ -459,8 +485,15 @@ export const App: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
+                    onClick={handleDownloadJson}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 text-xs font-semibold shadow transition-colors"
+                  >
+                    <Save size={13} />
+                    <span>JSON保存</span>
+                  </button>
+                  <button
                     onClick={handleApplyJson}
-                    className="px-3 py-1 rounded bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-bold shadow"
+                    className="px-3 py-1 rounded bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-bold shadow transition-colors"
                   >
                     プレビューに反映
                   </button>

@@ -9,6 +9,9 @@ export interface ScenarioNode {
   icon?: string; // lucide icon name (e.g., 'laptop', 'server', 'database', 'key', 'shield', 'user')
   image?: string; // external image asset path (e.g., '/actors/avatar.png')
   flipX?: boolean; // flip image horizontally (for facing left/right)
+  scale?: number; // scale multiplier for the actor/node (default: 1.0)
+  frame?: boolean; // display outer card frame/border (default: true; set false for borderless avatar standing)
+  connectTo?: string[]; // IDs of destination nodes to draw connecting lines to
   x: number; // 0 - 100 percentage
   y: number; // 0 - 100 percentage
   color?: NodeColor;

@@ -171,10 +171,26 @@ export function renderFrameAtTime(
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 6]);
 
-  if (scenario.nodes.length >= 2) {
+  const hasAnyConnectTo = scenario.nodes.some((n) => n.connectTo && n.connectTo.length > 0);
+  if (hasAnyConnectTo) {
+    for (const node of scenario.nodes) {
+      if (node.connectTo) {
+        for (const targetId of node.connectTo) {
+          const target = nodeMap.get(targetId);
+          if (target) {
+            ctx.beginPath();
+            ctx.moveTo((node.x / 100) * width, (node.y / 100) * height);
+            ctx.lineTo((target.x / 100) * width, (target.y / 100) * height);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+  } else if (scenario.nodes.length >= 2) {
     for (let i = 0; i < scenario.nodes.length - 1; i++) {
       const n1 = scenario.nodes[i];
       const n2 = scenario.nodes[i + 1];
+      if (n1.frame === false || n2.frame === false) continue;
       ctx.beginPath();
       ctx.moveTo((n1.x / 100) * width, (n1.y / 100) * height);
       ctx.lineTo((n2.x / 100) * width, (n2.y / 100) * height);
@@ -248,69 +264,115 @@ function renderCanvasNode(
     scale = 1.0 + Math.sin(stepProgress * Math.PI) * 0.04;
   }
 
+  const nodeCustomScale = node.scale || 1.0;
+  const totalScale = scale * nodeCustomScale;
+  const isFramed = node.frame !== false;
+
   ctx.save();
   ctx.translate(nx, ny);
-  ctx.scale(scale, scale);
+  ctx.scale(totalScale, totalScale);
   ctx.translate(-nx, -ny);
 
-  // Outer node card dimensions
-  const cardW = 104;
-  const cardH = 70;
-  const cx = nx - cardW / 2;
-  const cy = ny - cardH / 2;
+  if (isFramed) {
+    // Outer node card dimensions
+    const cardW = 104;
+    const cardH = 70;
+    const cx = nx - cardW / 2;
+    const cy = ny - cardH / 2;
 
-  // 1. Soft Glow around the card matching preview
-  ctx.save();
-  ctx.shadowColor = theme.glow;
-  ctx.shadowBlur = 14;
-  ctx.strokeStyle = theme.border;
-  ctx.lineWidth = 1.8;
-
-  // Node background gradient
-  const nodeGrad = ctx.createLinearGradient(cx, cy, cx, cy + cardH);
-  nodeGrad.addColorStop(0, theme.bgFrom);
-  nodeGrad.addColorStop(1, theme.bgTo);
-  ctx.fillStyle = nodeGrad;
-  roundRect(ctx, cx, cy, cardW, cardH, 12);
-  ctx.fill();
-  ctx.stroke();
-  ctx.restore();
-
-  // 2. Icon / Image container pill with subtle glow
-  const iconX = nx;
-  const iconY = cy + 18;
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
-  ctx.beginPath();
-  ctx.arc(iconX, iconY, 13, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Draw external actor image if present, otherwise vector icon
-  const actorImg = node.image && imageCache?.get(node.image);
-  if (actorImg) {
+    // 1. Soft Glow around the card matching preview
     ctx.save();
-    ctx.translate(iconX, iconY);
-    if (node.flipX) {
-      ctx.scale(-1, 1);
-    }
-    const imgSize = 22;
-    ctx.drawImage(actorImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
+    ctx.shadowColor = theme.glow;
+    ctx.shadowBlur = 14;
+    ctx.strokeStyle = theme.border;
+    ctx.lineWidth = 1.8;
+
+    // Node background gradient
+    const nodeGrad = ctx.createLinearGradient(cx, cy, cx, cy + cardH);
+    nodeGrad.addColorStop(0, theme.bgFrom);
+    nodeGrad.addColorStop(1, theme.bgTo);
+    ctx.fillStyle = nodeGrad;
+    roundRect(ctx, cx, cy, cardW, cardH, 12);
+    ctx.fill();
+    ctx.stroke();
     ctx.restore();
+
+    // 2. Icon / Image container pill with subtle glow
+    const iconX = nx;
+    const iconY = cy + 18;
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+    ctx.beginPath();
+    ctx.arc(iconX, iconY, 13, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw external actor image if present, otherwise vector icon
+    const actorImg = node.image && imageCache?.get(node.image);
+    if (actorImg) {
+      ctx.save();
+      ctx.translate(iconX, iconY);
+      if (node.flipX) {
+        ctx.scale(-1, 1);
+      }
+      const imgSize = 22;
+      ctx.drawImage(actorImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
+      ctx.restore();
+    } else {
+      drawCanvasIcon(ctx, node.icon || 'layers', iconX, iconY, 15, theme.text);
+    }
+
+    // Node label
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(node.label, nx, cy + 36);
+
+    // Sublabel
+    if (node.sublabel) {
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '10px sans-serif';
+      ctx.fillText(node.sublabel, nx, cy + 52);
+    }
   } else {
-    drawCanvasIcon(ctx, node.icon || 'layers', iconX, iconY, 15, theme.text);
-  }
+    // Borderless Standalone Avatar (e.g. Character standing)
+    const actorImg = node.image && imageCache?.get(node.image);
+    const imgW = 56;
+    const imgH = 70;
+    const imgX = nx;
+    const imgY = ny - 6;
 
-  // Node label
-  ctx.fillStyle = '#f8fafc';
-  ctx.font = 'bold 12px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.fillText(node.label, nx, cy + 36);
+    if (actorImg) {
+      ctx.save();
+      ctx.translate(imgX, imgY);
+      if (node.flipX) {
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(actorImg, -imgW / 2, -imgH / 2, imgW, imgH);
+      ctx.restore();
+    } else {
+      drawCanvasIcon(ctx, node.icon || 'layers', imgX, imgY, 32, theme.text);
+    }
 
-  // Sublabel
-  if (node.sublabel) {
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '10px sans-serif';
-    ctx.fillText(node.sublabel, nx, cy + 52);
+    // Label pill under character
+    const labelText = node.label;
+    ctx.font = 'bold 11px sans-serif';
+    const textW = ctx.measureText(labelText).width;
+    const badgeW = textW + 16;
+    const badgeH = 22;
+    const bx = nx - badgeW / 2;
+    const by = ny + imgH / 2 - 2;
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.strokeStyle = 'rgba(100, 116, 139, 0.5)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, bx, by, badgeW, badgeH, 11);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(labelText, nx, by + badgeH / 2);
   }
 
   ctx.restore();
