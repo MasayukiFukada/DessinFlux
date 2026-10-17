@@ -179,7 +179,7 @@ export function renderFrameAtTime(
 
   // 5. Render Nodes (Layer 3: Draw BEFORE foreground packets and popups!)
   for (const node of scenario.nodes) {
-    renderCanvasNode(ctx, node, width, height, activeStep?.action);
+    renderCanvasNode(ctx, node, width, height, activeStep?.action, stepProgress);
   }
 
   // 6. Render Foreground Actions (Layer 4: Packets, Badges, Highlights - Draw ON TOP of Nodes!)
@@ -198,41 +198,53 @@ function renderCanvasNode(
   node: ScenarioNode,
   width: number,
   height: number,
-  currentAction?: StepAction
+  currentAction?: StepAction,
+  stepProgress: number = 0
 ) {
   const nx = (node.x / 100) * width;
   const ny = (node.y / 100) * height;
   const colorKey = node.color || 'blue';
   const theme = canvasNodeColors[colorKey] || canvasNodeColors.blue;
 
-  // Check if target of transform
-  const isTransformTarget = currentAction?.type === 'transform' && currentAction.target === node.id;
-  if (isTransformTarget) {
-    ctx.strokeStyle = 'rgba(168, 85, 247, 0.4)';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(nx, ny, 44, 0, Math.PI * 2);
-    ctx.stroke();
+  // Arrival bounce or transform pulse scale effect
+  let scale = 1.0;
+  if (currentAction?.type === 'message' && currentAction.to === node.id && stepProgress > 0.75) {
+    // Arrival bounce: smoothly expand to 1.06 then ease back
+    const p = (stepProgress - 0.75) / 0.25; // 0 to 1
+    scale = 1.0 + Math.sin(p * Math.PI) * 0.07;
+  } else if (currentAction?.type === 'transform' && currentAction.target === node.id) {
+    scale = 1.0 + Math.sin(stepProgress * Math.PI) * 0.04;
   }
 
-  // Outer node card
+  ctx.save();
+  ctx.translate(nx, ny);
+  ctx.scale(scale, scale);
+  ctx.translate(-nx, -ny);
+
+  // Outer node card dimensions
   const cardW = 104;
   const cardH = 70;
   const cx = nx - cardW / 2;
   const cy = ny - cardH / 2;
+
+  // 1. Soft Glow around the card matching preview
+  ctx.save();
+  ctx.shadowColor = theme.glow;
+  ctx.shadowBlur = 14;
+  ctx.strokeStyle = theme.border;
+  ctx.lineWidth = 1.8;
 
   // Node background gradient
   const nodeGrad = ctx.createLinearGradient(cx, cy, cx, cy + cardH);
   nodeGrad.addColorStop(0, theme.bgFrom);
   nodeGrad.addColorStop(1, theme.bgTo);
   ctx.fillStyle = nodeGrad;
-  ctx.strokeStyle = theme.border;
-  ctx.lineWidth = 1.5;
   roundRect(ctx, cx, cy, cardW, cardH, 12);
   ctx.fill();
   ctx.stroke();
+  ctx.restore();
 
-  // Icon container pill
+  // 2. Icon container pill with subtle glow
   const iconX = nx;
   const iconY = cy + 18;
   ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
@@ -256,6 +268,8 @@ function renderCanvasNode(
     ctx.font = '10px sans-serif';
     ctx.fillText(node.sublabel, nx, cy + 52);
   }
+
+  ctx.restore();
 }
 
 function renderCanvasAction(
@@ -281,18 +295,40 @@ function renderCanvasAction(
     const curY = y1 + (y2 - y1) * t;
 
     const isDanger = action.status === 'danger';
+    const packetColor = isDanger ? '#f43f5e' : '#38bdf8';
+    const glowColor = isDanger ? 'rgba(244, 63, 94, 0.7)' : 'rgba(56, 189, 248, 0.7)';
+
+    // Arrival Ripple Wave effect around destination node
+    if (stepProgress > 0.7) {
+      const arriveP = (stepProgress - 0.7) / 0.3; // 0 to 1
+      const rippleRadius = 45 + arriveP * 35;
+      const rippleAlpha = Math.max(0, (1 - arriveP) * 0.7);
+
+      ctx.save();
+      ctx.strokeStyle = isDanger ? `rgba(244, 63, 94, ${rippleAlpha})` : `rgba(56, 189, 248, ${rippleAlpha})`;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(x2, y2, rippleRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Packet Bubble with Neon Glow
     const bubbleW = 150;
     const bubbleH = 44;
     const bx = curX - bubbleW / 2;
     const by = curY - 45;
 
-    // Draw Traveling Packet Bubble (Foreground)
+    ctx.save();
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 12;
     ctx.fillStyle = isDanger ? 'rgba(136, 19, 55, 0.95)' : 'rgba(12, 74, 110, 0.95)';
-    ctx.strokeStyle = isDanger ? '#f43f5e' : '#38bdf8';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = packetColor;
+    ctx.lineWidth = 1.8;
     roundRect(ctx, bx, by, bubbleW, bubbleH, 10);
     ctx.fill();
     ctx.stroke();
+    ctx.restore();
 
     // Packet Icon
     drawCanvasIcon(ctx, action.icon || 'key', bx + 18, by + bubbleH / 2, 14, isDanger ? '#fda4af' : '#7dd3fc');
@@ -315,17 +351,39 @@ function renderCanvasAction(
     const nx = (node.x / 100) * width;
     const ny = (node.y / 100) * height;
 
+    // Dual expanding pulse rings around transform target
+    const pulse1 = (stepProgress * 1.5) % 1;
+    const r1 = 40 + pulse1 * 40;
+    const a1 = (1 - pulse1) * 0.6;
+    ctx.save();
+    ctx.strokeStyle = `rgba(168, 85, 247, ${a1})`;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(nx, ny, r1, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
     const bw = 175;
     const bh = 38;
     const bx = nx - bw / 2;
     const by = ny + 46;
 
+    // Pop-in spring scale for badge
+    const badgeScale = Math.min(1, stepProgress * 3.5);
+    ctx.save();
+    ctx.translate(nx, ny + 46 + bh / 2);
+    ctx.scale(badgeScale, badgeScale);
+    ctx.translate(-nx, -(ny + 46 + bh / 2));
+
+    ctx.shadowColor = 'rgba(192, 132, 252, 0.6)';
+    ctx.shadowBlur = 10;
     ctx.fillStyle = 'rgba(88, 28, 135, 0.95)';
     ctx.strokeStyle = '#c084fc';
     ctx.lineWidth = 1.5;
     roundRect(ctx, bx, by, bw, bh, 8);
     ctx.fill();
     ctx.stroke();
+    ctx.restore();
 
     drawCanvasIcon(ctx, 'sparkles', bx + 16, by + bh / 2, 13, '#e9d5ff');
 
@@ -352,18 +410,29 @@ function renderCanvasAction(
 
     const bg = isDanger ? 'rgba(159, 18, 57, 0.95)' : isSuccess ? 'rgba(6, 95, 70, 0.95)' : 'rgba(30, 58, 138, 0.95)';
     const border = isDanger ? '#f43f5e' : isSuccess ? '#10b981' : '#3b82f6';
+    const glow = isDanger ? 'rgba(244, 63, 94, 0.6)' : isSuccess ? 'rgba(16, 185, 129, 0.6)' : 'rgba(59, 130, 246, 0.6)';
 
     const bw = 170;
     const bh = 34;
     const bx = nx - bw / 2;
     const by = ny + 46;
 
+    // Pop-in bounce
+    const badgeScale = Math.min(1, stepProgress * 3.5);
+    ctx.save();
+    ctx.translate(nx, ny + 46 + bh / 2);
+    ctx.scale(badgeScale, badgeScale);
+    ctx.translate(-nx, -(ny + 46 + bh / 2));
+
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = 12;
     ctx.fillStyle = bg;
     ctx.strokeStyle = border;
     ctx.lineWidth = 1.5;
     roundRect(ctx, bx, by, bw, bh, 8);
     ctx.fill();
     ctx.stroke();
+    ctx.restore();
 
     drawCanvasIcon(ctx, isDanger ? 'alert-triangle' : isSuccess ? 'check' : 'shield', bx + 16, by + bh / 2, 14, '#ffffff');
 

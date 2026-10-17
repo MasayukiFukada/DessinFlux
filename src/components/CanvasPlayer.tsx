@@ -251,14 +251,36 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
             activeStep?.action.type === 'state' && activeStep.action.target === node.id;
           const isTargetOfResult =
             activeStep?.action.type === 'result' && activeStep.action.target === node.id;
+          const isArrivingNode =
+            activeStep?.action.type === 'message' &&
+            activeStep.action.to === node.id &&
+            stepProgress > 0.75;
+
+          const scale = isArrivingNode ? 1.06 : isTargetOfTransform ? 1.04 : 1;
+          const isArrivingDanger =
+            isArrivingNode && activeStep?.action.type === 'message' && activeStep.action.status === 'danger';
 
           return (
             <div
               key={node.id}
               onMouseDown={() => handleMouseDown(node.id)}
-              className="absolute -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-10 group"
-              style={{ left: `${node.x}%`, top: `${node.y}%` }}
+              className="absolute -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-10 group transition-transform duration-150 ease-out"
+              style={{
+                left: `${node.x}%`,
+                top: `${node.y}%`,
+                transform: `translate(-50%, -50%) scale(${scale})`,
+              }}
             >
+              {/* Message Arrival Ripple Ring */}
+              {isArrivingNode && (
+                <div
+                  className={`absolute -inset-4 rounded-3xl animate-ping pointer-events-none ${
+                    isArrivingDanger ? 'bg-rose-500/40' : 'bg-sky-500/40'
+                  }`}
+                  style={{ animationDuration: '0.6s' }}
+                />
+              )}
+
               {/* Pulsing ring when transforming */}
               {isTargetOfTransform && (
                 <div
