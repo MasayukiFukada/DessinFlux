@@ -10,14 +10,18 @@ import {
   Tv
 } from 'lucide-react';
 import { ScenarioBook, AspectRatio, ScenarioNode } from './types/scenario';
+import { ExportFormat, ExportProgress } from './types/export';
 import { defaultScenarioBook } from './data/sampleScenarios';
 import { CanvasPlayer } from './components/CanvasPlayer';
-import { exportScenarioToGif, ExportProgress } from './utils/gifExporter';
+import { exportScenarioToGif } from './utils/gifExporter';
+import { exportScenarioToVideo } from './utils/videoExporter';
 
 export const App: React.FC = () => {
   const [book, setBook] = useState<ScenarioBook>(defaultScenarioBook);
   const [activeScenarioId, setActiveScenarioId] = useState<string>(book.scenarios[0]?.id || '');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(book.aspectRatio || '16:9');
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('webm');
+  const [transparentBg, setTransparentBg] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
   const [showJsonEditor, setShowJsonEditor] = useState<boolean>(false);
@@ -36,31 +40,51 @@ export const App: React.FC = () => {
     setJsonText(JSON.stringify(updatedBook, null, 2));
   };
 
-  // Export current scenario to GIF
-  const handleExportGif = async () => {
+  // Export current scenario to selected format (GIF, WebM, MP4)
+  const handleExport = async () => {
     if (!activeScenario || isExporting) return;
     try {
       setIsExporting(true);
-      const gifBlob = await exportScenarioToGif(activeScenario, aspectRatio, (p) => {
-        setExportProgress(p);
-      });
-      // Generate timestamp YYYYMMDD_HHmmss
+
       const now = new Date();
       const pad = (n: number) => String(n).padStart(2, '0');
       const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+      const bgSuffix = transparentBg ? '_transparent' : '';
+
+      let downloadBlob: Blob;
+      let ext: string;
+
+      if (exportFormat === 'gif') {
+        downloadBlob = await exportScenarioToGif(
+          activeScenario,
+          aspectRatio,
+          (p) => setExportProgress(p),
+          transparentBg
+        );
+        ext = 'gif';
+      } else {
+        const result = await exportScenarioToVideo(
+          activeScenario,
+          aspectRatio,
+          { format: exportFormat, transparentBg },
+          (p) => setExportProgress(p)
+        );
+        downloadBlob = result.blob;
+        ext = result.extension;
+      }
 
       // Trigger download
-      const url = URL.createObjectURL(gifBlob);
+      const url = URL.createObjectURL(downloadBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${activeScenario.id || 'scenario'}_${aspectRatio.replace(':', 'x')}_${timestamp}.gif`;
+      a.download = `${activeScenario.id || 'scenario'}_${aspectRatio.replace(':', 'x')}${bgSuffix}_${timestamp}.${ext}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('GIF Export Error:', err);
-      alert('GIFの書き出しに失敗しました。コンソールを確認してください。');
+      console.error('Export Error:', err);
+      alert(`${exportFormat.toUpperCase()} の書き出しに失敗しました。コンソールを確認してください。`);
     } finally {
       setIsExporting(false);
       setExportProgress(null);
@@ -212,14 +236,44 @@ export const App: React.FC = () => {
             <span>JSON</span>
           </button>
 
-          {/* Export GIF Button */}
+          {/* Export Settings: Format & Transparency */}
+          <div className="flex items-center bg-slate-800 rounded-lg p-1 border border-slate-700/60 text-xs">
+            {(['webm', 'mp4', 'gif'] as ExportFormat[]).map((fmt) => (
+              <button
+                key={fmt}
+                onClick={() => setExportFormat(fmt)}
+                className={`px-2.5 py-1 rounded-md transition-all font-semibold uppercase ${
+                  exportFormat === fmt
+                    ? 'bg-emerald-500 text-slate-950 shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {fmt}
+              </button>
+            ))}
+          </div>
+
+          {/* Transparent Background Toggle */}
+          <label className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs cursor-pointer hover:bg-slate-750 transition-colors select-none">
+            <input
+              type="checkbox"
+              checked={transparentBg}
+              onChange={(e) => setTransparentBg(e.target.checked)}
+              className="rounded bg-slate-900 border-slate-600 text-emerald-500 focus:ring-0 cursor-pointer w-3.5 h-3.5"
+            />
+            <span className={transparentBg ? 'text-emerald-300 font-semibold' : 'text-slate-400'}>
+              背景透過
+            </span>
+          </label>
+
+          {/* Export Action Button */}
           <button
-            onClick={handleExportGif}
+            onClick={handleExport}
             disabled={isExporting}
             className="flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-md shadow-emerald-500/20 disabled:opacity-50 transition-all active:scale-95"
           >
             <Download size={15} />
-            <span>{isExporting ? 'GIF出力中...' : 'GIF出力'}</span>
+            <span>{isExporting ? '書き出し中...' : `${exportFormat.toUpperCase()} 出力`}</span>
           </button>
         </div>
       </header>
@@ -289,8 +343,10 @@ export const App: React.FC = () => {
               <span className="font-semibold text-emerald-400">
                 {exportProgress.phase === 'rendering'
                   ? `フレーム描画中 (${exportProgress.currentFrame}/${exportProgress.totalFrames})`
+                  : exportProgress.phase === 'recording'
+                  ? `動画ストリーム録画中 (${exportProgress.currentFrame}/${exportProgress.totalFrames})`
                   : exportProgress.phase === 'encoding'
-                  ? 'GIFエンコード中...'
+                  ? 'ファイルエンコード中...'
                   : '出力完了！'}
               </span>
               <span className="text-slate-400">

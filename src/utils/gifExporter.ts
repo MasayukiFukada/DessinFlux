@@ -7,7 +7,7 @@ export interface ExportProgress {
   phase: 'rendering' | 'encoding' | 'done';
 }
 
-const aspectRatios: Record<AspectRatio, { width: number; height: number }> = {
+export const aspectRatios: Record<AspectRatio, { width: number; height: number }> = {
   '16:9': { width: 800, height: 450 },
   '1:1': { width: 600, height: 600 },
   '4:3': { width: 800, height: 600 },
@@ -28,7 +28,8 @@ const canvasNodeColors: Record<string, { border: string; glow: string; text: str
 export async function exportScenarioToGif(
   scenario: Scenario,
   aspectRatio: AspectRatio,
-  onProgress?: (p: ExportProgress) => void
+  onProgress?: (p: ExportProgress) => void,
+  transparentBg: boolean = false
 ): Promise<Blob> {
   const { width, height } = aspectRatios[aspectRatio];
   const fps = 20; // 20 frames per second
@@ -48,7 +49,7 @@ export async function exportScenarioToGif(
   for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
     const currentTime = (frameIndex / totalFrames) * totalDuration;
 
-    renderFrameAtTime(ctx, scenario, currentTime, width, height);
+    renderFrameAtTime(ctx, scenario, currentTime, width, height, transparentBg);
 
     const imgData = ctx.getImageData(0, 0, width, height);
     frames.push({ data: imgData.data, delay: frameDelay });
@@ -77,29 +78,35 @@ export async function exportScenarioToGif(
   return gifBlob;
 }
 
-function renderFrameAtTime(
+export function renderFrameAtTime(
   ctx: CanvasRenderingContext2D,
   scenario: Scenario,
   currentTime: number,
   width: number,
-  height: number
+  height: number,
+  transparentBg: boolean = false
 ) {
-  // 1. Dark Modern Background matching preview
-  const grad = ctx.createLinearGradient(0, 0, width, height);
-  grad.addColorStop(0, '#090d16');
-  grad.addColorStop(0.5, '#020617');
-  grad.addColorStop(1, '#0b1120');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, width, height);
+  // Clear canvas
+  ctx.clearRect(0, 0, width, height);
 
-  // Subtle grid dots
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
-  const gridSize = 24;
-  for (let x = 12; x < width; x += gridSize) {
-    for (let y = 12; y < height; y += gridSize) {
-      ctx.beginPath();
-      ctx.arc(x, y, 1, 0, Math.PI * 2);
-      ctx.fill();
+  if (!transparentBg) {
+    // 1. Dark Modern Background matching preview
+    const grad = ctx.createLinearGradient(0, 0, width, height);
+    grad.addColorStop(0, '#090d16');
+    grad.addColorStop(0.5, '#020617');
+    grad.addColorStop(1, '#0b1120');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+
+    // Subtle grid dots
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+    const gridSize = 24;
+    for (let x = 12; x < width; x += gridSize) {
+      for (let y = 12; y < height; y += gridSize) {
+        ctx.beginPath();
+        ctx.arc(x, y, 1, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
 
