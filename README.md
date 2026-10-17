@@ -1,8 +1,11 @@
 # DessinFlux
 
-動画解説（YouTube, Shorts, スライド等）で使える、**アニメーション図解（GIF画像）を即座に生成・出力するツール**です。
+動画解説（YouTube, Shorts, スライド等）で使える、**アニメーション図解（WebM / MP4 / GIF）を即座に生成・出力するツール**です。
+
+![DessinFlux アクション実演デモ](docs/assets/action-showcase.gif)
 
 ---
+
 
 ## 🌟 特徴
 
@@ -101,7 +104,10 @@ npm run dev
 
 ## 🎨 外部素材（Actor画像）の持ち込み＆左右反転
 
+![ノード表現とカラーバリエーション](docs/assets/node-styles.gif)
+
 プロジェクト内の `public/actors/` フォルダに任意の画像ファイル（PNG、SVG、WebP、JPG等）を配置するだけで、ノードにアバターやキャラクター画像を表示できます。
+
 
 ```json
 {

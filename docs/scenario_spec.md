@@ -35,7 +35,10 @@ interface Scenario {
 
 ## 2. ノード仕様 (ScenarioNode)
 
+![ノードスタイルと表現一覧](assets/node-styles.gif)
+
 ノードは、サーバーやデータベースなどのシステムコンポーネント、または解説役のキャラクター（立ち絵・アバター）を表現します。
+
 
 ### パラメータ一覧
 
@@ -110,7 +113,10 @@ interface Scenario {
 
 ## 5. ステップとアクション仕様 (ScenarioStep)
 
+![アクション一覧実演デモ](assets/action-showcase.gif)
+
 各ステップは、一定時間（`duration` ms）の間に実行される1つのアクションと、画面下部に表示される字幕（`caption`）で構成されます。
+
 
 ```typescript
 interface ScenarioStep {
