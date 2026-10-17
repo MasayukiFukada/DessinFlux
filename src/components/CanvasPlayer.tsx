@@ -264,7 +264,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
             <div
               key={node.id}
               onMouseDown={() => handleMouseDown(node.id)}
-              className="absolute -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-10 group transition-transform duration-150 ease-out"
+              className="absolute cursor-grab active:cursor-grabbing z-10 group transition-transform duration-150 ease-out"
               style={{
                 left: `${node.x}%`,
                 top: `${node.y}%`,

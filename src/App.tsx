@@ -7,7 +7,9 @@ import {
   Film,
   Sparkles,
   Code2,
-  Tv
+  Tv,
+  Plus,
+  List
 } from 'lucide-react';
 import { ScenarioBook, AspectRatio, ScenarioNode } from './types/scenario';
 import { ExportFormat, ExportProgress } from './types/export';
@@ -172,6 +174,39 @@ export const App: React.FC = () => {
     setTimeout(() => setCopiedPrompt(false), 2000);
   };
 
+  // Add a new empty scenario
+  const handleAddNewScenario = () => {
+    const newId = `scenario-${Date.now().toString().slice(-4)}`;
+    const newScenario = {
+      id: newId,
+      title: `新規シナリオ ${book.scenarios.length + 1}`,
+      description: "新しいアニメーション解説",
+      nodes: [
+        { id: "node1", label: "クライアント", sublabel: "Browser", icon: "laptop", x: 25, y: 50, color: "blue" as const },
+        { id: "node2", label: "サーバー", sublabel: "API", icon: "server", x: 75, y: 50, color: "purple" as const }
+      ],
+      steps: [
+        {
+          duration: 2000,
+          caption: "クライアントからサーバーへリクエストを送信します",
+          action: {
+            type: "message" as const,
+            from: "node1",
+            to: "node2",
+            label: "リクエスト",
+            payload: "data",
+            icon: "send",
+            status: "safe" as const
+          }
+        }
+      ]
+    };
+    const updatedBook = { ...book, scenarios: [...book.scenarios, newScenario] };
+    setBook(updatedBook);
+    setActiveScenarioId(newId);
+    setJsonText(JSON.stringify(updatedBook, null, 2));
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
       {/* Top Navigation Bar */}
@@ -278,121 +313,169 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col p-6 max-w-6xl mx-auto w-full gap-6">
-        {/* Scenario Selection Tabs */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              シナリオ選択 ({book.scenarios.length}件)
-            </span>
+      {/* Main Content Area: Left Sidebar + Right Main Preview */}
+      <div className="flex-1 flex flex-col md:flex-row p-6 max-w-7xl mx-auto w-full gap-6">
+        {/* Left Sidebar: Scenario List */}
+        <aside className="w-full md:w-80 lg:w-84 flex flex-col gap-3 flex-shrink-0">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
             <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 cursor-pointer">
-                <Upload size={13} />
-                <span>JSONファイルを開く</span>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
+              <List size={16} className="text-sky-400" />
+              <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                シナリオ一覧 ({book.scenarios.length})
+              </span>
             </div>
+            <label className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-sky-300 cursor-pointer transition-colors">
+              <Upload size={12} />
+              <span>開く</span>
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </label>
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-800">
+          {/* Vertical Scenario List */}
+          <div className="flex flex-col gap-2 overflow-y-auto max-h-[calc(100vh-220px)] pr-1">
             {book.scenarios.map((sc, index) => {
               const isActive = sc.id === activeScenarioId;
               return (
                 <button
                   key={sc.id}
                   onClick={() => setActiveScenarioId(sc.id)}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-t-lg text-xs font-medium transition-all whitespace-nowrap border-b-2 ${
+                  className={`flex flex-col text-left p-3 rounded-xl border transition-all ${
                     isActive
-                      ? 'bg-slate-800/80 text-sky-300 border-sky-400 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200 border-transparent hover:bg-slate-900/60'
+                      ? 'bg-slate-900 border-sky-500/60 shadow-lg shadow-sky-950/40 ring-1 ring-sky-500/30'
+                      : 'bg-slate-900/60 border-slate-800/80 hover:bg-slate-900 hover:border-slate-700'
                   }`}
                 >
-                  <span className="w-4 h-4 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-slate-300">
-                    {index + 1}
-                  </span>
-                  <span>{sc.title}</span>
+                  <div className="flex items-center justify-between w-full mb-1">
+                    <span
+                      className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold ${
+                        isActive ? 'bg-sky-500 text-slate-950' : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      {index + 1}
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-500 px-1.5 py-0.5 rounded bg-slate-800/60">
+                      {sc.steps.length} steps
+                    </span>
+                  </div>
+                  <h3
+                    className={`text-xs font-bold leading-snug line-clamp-2 ${
+                      isActive ? 'text-sky-200' : 'text-slate-200'
+                    }`}
+                  >
+                    {sc.title}
+                  </h3>
+                  {sc.description && (
+                    <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                      {sc.description}
+                    </p>
+                  )}
                 </button>
               );
             })}
           </div>
-        </div>
 
-        {/* Player & Preview Area */}
-        <div className="flex flex-col items-center justify-center">
-          {activeScenario ? (
-            <CanvasPlayer
-              scenario={activeScenario}
-              aspectRatio={aspectRatio}
-              onUpdateNodes={handleUpdateNodes}
-            />
-          ) : (
-            <div className="p-12 text-center text-slate-500">シナリオが選択されていません</div>
+          {/* Add Scenario Button */}
+          <button
+            onClick={handleAddNewScenario}
+            className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-dashed border-slate-700 hover:border-sky-500/60 text-slate-400 hover:text-sky-300 text-xs font-semibold transition-colors mt-1"
+          >
+            <Plus size={14} />
+            <span>新規シナリオ追加</span>
+          </button>
+        </aside>
+
+        {/* Right Main Area: Preview Player & Controls */}
+        <main className="flex-1 flex flex-col items-center gap-4 min-w-0">
+          {/* Active Scenario Title Banner */}
+          {activeScenario && (
+            <div className="w-full flex flex-col pb-2 border-b border-slate-800/60">
+              <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                {activeScenario.title}
+              </h2>
+              {activeScenario.description && (
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {activeScenario.description}
+                </p>
+              )}
+            </div>
           )}
-        </div>
 
-        {/* Export Progress Overlay / Banner */}
-        {isExporting && exportProgress && (
-          <div className="p-4 rounded-xl bg-slate-900 border border-emerald-500/40 shadow-xl flex flex-col gap-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-emerald-400">
-                {exportProgress.phase === 'rendering'
-                  ? `フレーム描画中 (${exportProgress.currentFrame}/${exportProgress.totalFrames})`
-                  : exportProgress.phase === 'recording'
-                  ? `動画ストリーム録画中 (${exportProgress.currentFrame}/${exportProgress.totalFrames})`
-                  : exportProgress.phase === 'encoding'
-                  ? 'ファイルエンコード中...'
-                  : '出力完了！'}
-              </span>
-              <span className="text-slate-400">
-                {Math.round((exportProgress.currentFrame / exportProgress.totalFrames) * 100)}%
-              </span>
-            </div>
-            <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-              <div
-                className="bg-emerald-400 h-full transition-all duration-150"
-                style={{
-                  width: `${(exportProgress.currentFrame / exportProgress.totalFrames) * 100}%`,
-                }}
+          {/* Player & Preview Area */}
+          <div className="w-full flex flex-col items-center justify-center">
+            {activeScenario ? (
+              <CanvasPlayer
+                scenario={activeScenario}
+                aspectRatio={aspectRatio}
+                onUpdateNodes={handleUpdateNodes}
               />
-            </div>
+            ) : (
+              <div className="p-12 text-center text-slate-500">シナリオが選択されていません</div>
+            )}
           </div>
-        )}
 
-        {/* Collapsible JSON Editor */}
-        {showJsonEditor && (
-          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col gap-3 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileJson size={16} className="text-sky-400" />
-                <span className="text-xs font-bold text-slate-200">シナリオJSONエディタ</span>
-                <span className="text-[11px] text-slate-400">
-                  (AIが生成したJSONをここに貼り付けて反映できます)
+          {/* Export Progress Overlay / Banner */}
+          {isExporting && exportProgress && (
+            <div className="w-full max-w-4xl p-4 rounded-xl bg-slate-900 border border-emerald-500/40 shadow-xl flex flex-col gap-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-emerald-400">
+                  {exportProgress.phase === 'rendering'
+                    ? `フレーム描画中 (${exportProgress.currentFrame}/${exportProgress.totalFrames})`
+                    : exportProgress.phase === 'recording'
+                    ? `動画ストリーム録画中 (${exportProgress.currentFrame}/${exportProgress.totalFrames})`
+                    : exportProgress.phase === 'encoding'
+                    ? 'ファイルエンコード中...'
+                    : '出力完了！'}
+                </span>
+                <span className="text-slate-400">
+                  {Math.round((exportProgress.currentFrame / exportProgress.totalFrames) * 100)}%
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleApplyJson}
-                  className="px-3 py-1 rounded bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-bold shadow"
-                >
-                  プレビューに反映
-                </button>
+              <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                <div
+                  className="bg-emerald-400 h-full transition-all duration-150"
+                  style={{
+                    width: `${(exportProgress.currentFrame / exportProgress.totalFrames) * 100}%`,
+                  }}
+                />
               </div>
             </div>
-            <textarea
-              value={jsonText}
-              onChange={(e) => setJsonText(e.target.value)}
-              rows={12}
-              className="w-full font-mono text-xs p-3 bg-slate-950 text-slate-200 border border-slate-800 rounded-lg focus:outline-none focus:border-sky-500"
-            />
-          </div>
-        )}
-      </main>
+          )}
+
+          {/* Collapsible JSON Editor */}
+          {showJsonEditor && (
+            <div className="w-full max-w-4xl p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col gap-3 shadow-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileJson size={16} className="text-sky-400" />
+                  <span className="text-xs font-bold text-slate-200">シナリオJSONエディタ</span>
+                  <span className="text-[11px] text-slate-400">
+                    (AIが生成したJSONをここに貼り付けて反映できます)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleApplyJson}
+                    className="px-3 py-1 rounded bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-bold shadow"
+                  >
+                    プレビューに反映
+                  </button>
+                </div>
+              </div>
+              <textarea
+                value={jsonText}
+                onChange={(e) => setJsonText(e.target.value)}
+                rows={12}
+                className="w-full font-mono text-xs p-3 bg-slate-950 text-slate-200 border border-slate-800 rounded-lg focus:outline-none focus:border-sky-500"
+              />
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 };
